@@ -1,4 +1,3 @@
-
 interface LLMResponse {
   content: string;
   fallacies?: string[];
@@ -32,6 +31,121 @@ export const AVAILABLE_MODELS: HuggingFaceModel[] = [
 export class LLMService {
   private static readonly HF_API_KEY = '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';
   private static readonly HF_API_BASE = 'https://api-inference.huggingface.co/models';
+
+  static async testConnection(modelId: string = 'mistralai/Mistral-7B-Instruct-v0.2'): Promise<boolean> {
+    try {
+      console.log(`Testing connection to ${modelId}...`);
+      
+      const response = await fetch(`${this.HF_API_BASE}/${modelId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.HF_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          inputs: "Hello, can you respond with 'API test successful'?",
+          parameters: {
+            max_new_tokens: 20,
+            temperature: 0.1,
+            return_full_text: false
+          }
+        }),
+      });
+
+      console.log(`API Response status: ${response.status}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`API Error: ${response.status} - ${errorText}`);
+        return false;
+      }
+
+      const data = await response.json();
+      console.log('API Response data:', data);
+      
+      return true;
+    } catch (error) {
+      console.error('Connection test failed:', error);
+      return false;
+    }
+  }
+
+  static async generateDebateResponse(
+    input: string,
+    modelId: string = 'mistralai/Mistral-7B-Instruct-v0.2'
+  ): Promise<string> {
+    try {
+      console.log(`Generating response with model: ${modelId}`);
+      console.log(`Input: ${input}`);
+      
+      const prompt = `You are a helpful debate assistant. Provide a thoughtful, structured response to the following argument or topic. Focus on logical analysis, counterpoints, and constructive debate elements:\n\n${input}\n\nResponse:`;
+      
+      const response = await fetch(`${this.HF_API_BASE}/${modelId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.HF_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          inputs: prompt,
+          parameters: {
+            max_new_tokens: 200,
+            temperature: 0.7,
+            top_p: 0.9,
+            do_sample: true,
+            return_full_text: false
+          }
+        }),
+      });
+
+      console.log(`API Response status: ${response.status}`);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`API Error: ${response.status} - ${errorText}`);
+        
+        if (response.status === 503) {
+          throw new Error('Model is currently loading. Please wait a moment and try again.');
+        } else if (response.status === 401) {
+          throw new Error('Invalid API key. Please check your Hugging Face API key.');
+        } else if (response.status === 429) {
+          throw new Error('Rate limit exceeded. Please wait before making another request.');
+        } else {
+          throw new Error(`API request failed: ${response.status} - ${errorText}`);
+        }
+      }
+
+      const data = await response.json();
+      console.log('Raw API Response:', data);
+      
+      let content = '';
+      
+      if (Array.isArray(data) && data.length > 0 && data[0]?.generated_text) {
+        content = data[0].generated_text.trim();
+      } else if (data.generated_text) {
+        content = data.generated_text.trim();
+      } else if (data.error) {
+        throw new Error(`API Error: ${data.error}`);
+      } else {
+        console.error('Unexpected response format:', data);
+        throw new Error('Unexpected response format from API');
+      }
+
+      console.log('Generated content:', content);
+      
+      if (!content) {
+        throw new Error('Empty response from API');
+      }
+      
+      return content;
+    } catch (error) {
+      console.error('Hugging Face API error:', error);
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Failed to generate response. Please try again.');
+    }
+  }
 
   static async generateCounterArgument(
     topic: string,
@@ -90,50 +204,6 @@ export class LLMService {
     } catch (error) {
       console.error('Hugging Face API error:', error);
       return this.generateMockResponse(userArgument, position);
-    }
-  }
-
-  static async generateDebateResponse(
-    input: string,
-    modelId: string = 'mistralai/Mistral-7B-Instruct-v0.2'
-  ): Promise<string> {
-    try {
-      const prompt = `You are a helpful debate assistant. Provide a thoughtful, structured response to the following argument or topic. Focus on logical analysis, counterpoints, and constructive debate elements:\n\n${input}\n\nResponse:`;
-      
-      const response = await fetch(`${this.HF_API_BASE}/${modelId}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.HF_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          inputs: prompt,
-          parameters: {
-            max_new_tokens: 150,
-            temperature: 0.7,
-            top_p: 0.9,
-            do_sample: true,
-            return_full_text: false
-          }
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      if (Array.isArray(data) && data[0]?.generated_text) {
-        return data[0].generated_text.trim();
-      } else if (data.generated_text) {
-        return data.generated_text.trim();
-      } else {
-        throw new Error('Unexpected response format');
-      }
-    } catch (error) {
-      console.error('Hugging Face API error:', error);
-      return 'I apologize, but I encountered an error generating a response. Please try again.';
     }
   }
 

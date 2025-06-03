@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Send, Bot, User } from 'lucide-react';
+import { Send, Bot, User, TestTube, CheckCircle, XCircle } from 'lucide-react';
 import { LLMService, AVAILABLE_MODELS } from '../services/LLMService';
 import { toast } from '@/hooks/use-toast';
 
@@ -20,6 +20,43 @@ const LLMChat: React.FC = () => {
   const [userInput, setUserInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
+  const testConnection = async () => {
+    setIsTesting(true);
+    setConnectionStatus('idle');
+    
+    try {
+      console.log('Testing API connection...');
+      const isConnected = await LLMService.testConnection(selectedModel);
+      
+      if (isConnected) {
+        setConnectionStatus('success');
+        toast({
+          title: "Connection Successful!",
+          description: "The Hugging Face API is working correctly.",
+        });
+      } else {
+        setConnectionStatus('error');
+        toast({
+          title: "Connection Failed",
+          description: "Unable to connect to the Hugging Face API.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Connection test error:', error);
+      setConnectionStatus('error');
+      toast({
+        title: "Connection Error",
+        description: error instanceof Error ? error.message : "Unknown error occurred.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsTesting(false);
+    }
+  };
 
   const handleSendMessage = async () => {
     if (!userInput.trim() || isLoading) return;
@@ -36,6 +73,7 @@ const LLMChat: React.FC = () => {
     setIsLoading(true);
 
     try {
+      console.log('Sending message to LLM...');
       const response = await LLMService.generateDebateResponse(userInput.trim(), selectedModel);
       
       const assistantMessage: ChatMessage = {
@@ -46,13 +84,27 @@ const LLMChat: React.FC = () => {
       };
 
       setMessages(prev => [...prev, assistantMessage]);
+      
+      toast({
+        title: "Response Generated",
+        description: "LLM response received successfully!",
+      });
     } catch (error) {
       console.error('Error generating response:', error);
       toast({
         title: "Error",
-        description: "Failed to generate response. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to generate response. Please try again.",
         variant: "destructive"
       });
+      
+      // Add error message to chat
+      const errorMessage: ChatMessage = {
+        id: `error_${Date.now()}`,
+        type: 'assistant',
+        content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        timestamp: new Date().toISOString()
+      };
+      setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
@@ -88,6 +140,33 @@ const LLMChat: React.FC = () => {
               Selected: {selectedModelInfo.name} - {selectedModelInfo.description}
             </p>
           )}
+          
+          {/* Test Connection Button */}
+          <div className="mt-4 flex items-center gap-4">
+            <Button 
+              onClick={testConnection} 
+              disabled={isTesting}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <TestTube className="w-4 h-4" />
+              {isTesting ? 'Testing...' : 'Test API Connection'}
+            </Button>
+            
+            {connectionStatus === 'success' && (
+              <div className="flex items-center gap-2 text-green-600">
+                <CheckCircle className="w-4 h-4" />
+                <span className="text-sm">Connected</span>
+              </div>
+            )}
+            
+            {connectionStatus === 'error' && (
+              <div className="flex items-center gap-2 text-red-600">
+                <XCircle className="w-4 h-4" />
+                <span className="text-sm">Connection Failed</span>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -100,7 +179,9 @@ const LLMChat: React.FC = () => {
           <div className="space-y-4 max-h-96 overflow-y-auto mb-4">
             {messages.length === 0 && (
               <p className="text-gray-500 text-center py-8">
-                Start a conversation by entering your argument or topic below.
+                Start a conversation by entering your argument or topic below. 
+                <br />
+                <span className="text-sm">Tip: Test the API connection first!</span>
               </p>
             )}
             {messages.map((message) => (
