@@ -16,7 +16,7 @@ interface ChatMessage {
 }
 
 const LLMChat: React.FC = () => {
-  const [selectedModel, setSelectedModel] = useState('microsoft/DialoGPT-medium');
+  const [selectedModel, setSelectedModel] = useState('mistralai/Mistral-7B-Instruct-v0.3');
   const [userInput, setUserInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);

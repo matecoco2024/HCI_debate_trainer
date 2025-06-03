@@ -12,19 +12,19 @@ interface HuggingFaceModel {
 
 export const AVAILABLE_MODELS: HuggingFaceModel[] = [
   {
+    id: 'mistralai/Mistral-7B-Instruct-v0.3',
+    name: 'Mistral-7B-Instruct',
+    description: 'High-quality instruction-following model'
+  },
+  {
     id: 'microsoft/DialoGPT-medium',
     name: 'DialoGPT-Medium',
     description: 'Conversational AI model optimized for dialogue'
   },
   {
-    id: 'facebook/blenderbot-400M-distill',
-    name: 'BlenderBot-400M',
-    description: 'Conversational AI with good reasoning abilities'
-  },
-  {
-    id: 'microsoft/DialoGPT-small',
-    name: 'DialoGPT-Small',
-    description: 'Smaller, faster conversational model'
+    id: 'HuggingFaceH4/zephyr-7b-beta',
+    name: 'Zephyr-7B-Beta',
+    description: 'Fine-tuned conversational model'
   }
 ];
 
@@ -50,8 +50,7 @@ export class LLMService {
     console.log('Using fallback API key');
     return this.FALLBACK_API_KEY;
   }
-
-  static async testConnection(modelId: string = 'microsoft/DialoGPT-medium'): Promise<boolean> {
+  static async testConnection(modelId: string = 'mistralai/Mistral-7B-Instruct-v0.3'): Promise<boolean> {
     try {
       const apiKey = this.getApiKey();
       console.log(`Testing connection to ${modelId} with API key: ${apiKey.substring(0, 10)}...`);
@@ -63,11 +62,11 @@ export class LLMService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          inputs: "Hello",
+          inputs: "Hello, how are you?",
           parameters: {
-            max_length: 50,
+            max_new_tokens: 20,
             temperature: 0.7,
-            pad_token_id: 50256
+            return_full_text: false
           }
         }),
       });
@@ -96,10 +95,9 @@ export class LLMService {
       return false;
     }
   }
-
   static async generateDebateResponse(
     input: string,
-    modelId: string = 'microsoft/DialoGPT-medium'
+    modelId: string = 'mistralai/Mistral-7B-Instruct-v0.3'
   ): Promise<string> {
     try {
       const apiKey = this.getApiKey();
@@ -116,10 +114,10 @@ export class LLMService {
         body: JSON.stringify({
           inputs: input,
           parameters: {
-            max_length: 150,
+            max_new_tokens: 100,
             temperature: 0.7,
-            pad_token_id: 50256,
-            do_sample: true
+            do_sample: true,
+            return_full_text: false
           }
         }),
       });
@@ -169,11 +167,6 @@ export class LLMService {
         throw new Error('Empty response from API');
       }
       
-      // Clean up the response if it's a dialogue model
-      if (content.includes(input)) {
-        content = content.replace(input, '').trim();
-      }
-      
       return content || "I understand your point. Let me offer a different perspective on this topic.";
     } catch (error) {
       console.error('Hugging Face API error:', error);
@@ -183,7 +176,6 @@ export class LLMService {
       throw new Error('Failed to generate response. Please try again.');
     }
   }
-
   static async generateCounterArgument(
     topic: string,
     userArgument: string,
@@ -191,11 +183,12 @@ export class LLMService {
     modelId?: string,
     apiKey?: string
   ): Promise<LLMResponse> {
-    const selectedModel = modelId || 'mistralai/Mistral-7B-Instruct-v0.2';
+    const selectedModel = modelId || 'mistralai/Mistral-7B-Instruct-v0.3';
     const activeApiKey = apiKey || this.getApiKey();
     
     try {
       const prompt = this.createCounterArgumentPrompt(topic, userArgument, position);
+      console.log('Generated prompt:', prompt);
       
       const response = await fetch(`${this.HF_API_BASE}/${selectedModel}`, {
         method: 'POST',
@@ -206,7 +199,7 @@ export class LLMService {
         body: JSON.stringify({
           inputs: prompt,
           parameters: {
-            max_new_tokens: 100,
+            max_new_tokens: 120,
             temperature: 0.7,
             top_p: 0.9,
             do_sample: true,
@@ -215,11 +208,20 @@ export class LLMService {
         }),
       });
 
+      console.log(`Counter-argument API Response status: ${response.status}`);
+
       if (!response.ok) {
-        throw new Error(`API request failed: ${response.status}`);
+        const errorText = await response.text();
+        console.error(`Counter-argument API Error: ${response.status} - ${errorText}`);
+        
+        // Fall back to mock response on API errors
+        console.log('Falling back to mock response due to API error');
+        return this.generateMockResponse(userArgument, position);
       }
 
       const data = await response.json();
+      console.log('Counter-argument API Response:', data);
+      
       let content = '';
       
       if (Array.isArray(data) && data[0]?.generated_text) {
@@ -227,7 +229,12 @@ export class LLMService {
       } else if (data.generated_text) {
         content = data.generated_text.trim();
       } else {
-        throw new Error('Unexpected response format');
+        console.log('Unexpected response format, using mock response');
+        return this.generateMockResponse(userArgument, position);
+      }      // Clean up and validate the content
+      if (!content || content.length < 10) {
+        console.log('Generated content too short, using mock response');
+        return this.generateMockResponse(userArgument, position);
       }
       
       // Inject fallacies based on chance (30% probability)
@@ -241,10 +248,10 @@ export class LLMService {
       };
     } catch (error) {
       console.error('Hugging Face API error:', error);
+      console.log('Falling back to mock response due to error');
       return this.generateMockResponse(userArgument, position);
     }
   }
-
   static async generateFeedback(
     userAnswer: string,
     correctAnswer: string,
@@ -257,12 +264,12 @@ export class LLMService {
     }
 
     try {
-      const prompt = `Provide brief coaching feedback for this fallacy identification:
+      const prompt = `<s>[INST] Provide brief coaching feedback for this fallacy identification:
 User identified: ${userAnswer}
 Correct answer: ${correctAnswer}
-Give constructive feedback in 15-20 words:`;
+Give constructive feedback in 15-20 words: [/INST]`;
 
-      const response = await fetch(`${this.HF_API_BASE}/mistralai/Mistral-7B-Instruct-v0.2`, {
+      const response = await fetch(`${this.HF_API_BASE}/mistralai/Mistral-7B-Instruct-v0.3`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${activeApiKey}`,
@@ -271,30 +278,38 @@ Give constructive feedback in 15-20 words:`;
         body: JSON.stringify({
           inputs: prompt,
           parameters: {
-            max_new_tokens: 30,
-            temperature: 0.5
+            max_new_tokens: 40,
+            temperature: 0.5,
+            return_full_text: false
           }
         }),
       });
 
+      if (!response.ok) {
+        console.error('Feedback API error:', response.status);
+        return this.generateMockFeedback(userAnswer, correctAnswer);
+      }
+
       const data = await response.json();
-      return data[0]?.generated_text?.replace(prompt, '').trim() || 
-             this.generateMockFeedback(userAnswer, correctAnswer);
+      const feedback = Array.isArray(data) ? data[0]?.generated_text : data.generated_text;
+      
+      return feedback?.trim() || this.generateMockFeedback(userAnswer, correctAnswer);
     } catch (error) {
       console.error('Feedback generation error:', error);
       return this.generateMockFeedback(userAnswer, correctAnswer);
     }
   }
-
   private static createCounterArgumentPrompt(
     topic: string,
     userArgument: string,
     position: 'for' | 'against'
   ): string {
     const oppositePosition = position === 'for' ? 'against' : 'for';
-    return `Debate topic: ${topic}
-You are arguing ${oppositePosition}. User said: "${userArgument}"
-Provide a counter-argument (50-75 words, be persuasive but respectful):`;
+    return `<s>[INST] You are participating in a respectful debate about: "${topic}"
+
+The other person argues ${position} and said: "${userArgument}"
+
+You argue ${oppositePosition}. Provide a thoughtful counter-argument in 2-3 sentences. Be persuasive but respectful. [/INST]`;
   }
 
   private static generateMockResponse(userArgument: string, position: 'for' | 'against'): LLMResponse {
