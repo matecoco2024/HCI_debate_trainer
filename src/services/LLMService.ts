@@ -5,35 +5,60 @@ interface LLMResponse {
   coaching?: string;
 }
 
+interface HuggingFaceModel {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export const AVAILABLE_MODELS: HuggingFaceModel[] = [
+  {
+    id: 'mistralai/Mistral-7B-Instruct-v0.2',
+    name: 'Mistral-7B-Instruct-v0.2',
+    description: 'open-source, general-purpose assistant'
+  },
+  {
+    id: 'Qwen/Qwen1.5-7B-Chat',
+    name: 'Qwen1.5-7B-Chat',
+    description: 'fast and accurate for logical arguments'
+  },
+  {
+    id: 'HuggingFaceH4/zephyr-7b-beta',
+    name: 'Zephyr-7B-Beta',
+    description: 'optimized for helpfulness and engaging tone'
+  }
+];
+
 export class LLMService {
-  private static readonly API_URL = 'https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium';
+  private static readonly HF_API_KEY = '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';
+  private static readonly HF_API_BASE = 'https://api-inference.huggingface.co/models';
 
   static async generateCounterArgument(
     topic: string,
     userArgument: string,
     position: 'for' | 'against',
+    modelId?: string,
     apiKey?: string
   ): Promise<LLMResponse> {
-    if (!apiKey) {
-      return this.generateMockResponse(userArgument, position);
-    }
-
+    const selectedModel = modelId || 'mistralai/Mistral-7B-Instruct-v0.2';
+    
     try {
       const prompt = this.createCounterArgumentPrompt(topic, userArgument, position);
       
-      const response = await fetch(this.API_URL, {
+      const response = await fetch(`${this.HF_API_BASE}/${selectedModel}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${this.HF_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           inputs: prompt,
           parameters: {
-            max_new_tokens: 50,
+            max_new_tokens: 100,
             temperature: 0.7,
             top_p: 0.9,
-            do_sample: true
+            do_sample: true,
+            return_full_text: false
           }
         }),
       });
@@ -43,7 +68,15 @@ export class LLMService {
       }
 
       const data = await response.json();
-      const content = data[0]?.generated_text?.replace(prompt, '').trim() || 'I disagree with your point.';
+      let content = '';
+      
+      if (Array.isArray(data) && data[0]?.generated_text) {
+        content = data[0].generated_text.trim();
+      } else if (data.generated_text) {
+        content = data.generated_text.trim();
+      } else {
+        throw new Error('Unexpected response format');
+      }
       
       // Inject fallacies based on chance (30% probability)
       const shouldIncludeFallacy = Math.random() < 0.3;
@@ -55,8 +88,52 @@ export class LLMService {
         coaching: this.generateCoaching(userArgument)
       };
     } catch (error) {
-      console.error('LLM API error:', error);
+      console.error('Hugging Face API error:', error);
       return this.generateMockResponse(userArgument, position);
+    }
+  }
+
+  static async generateDebateResponse(
+    input: string,
+    modelId: string = 'mistralai/Mistral-7B-Instruct-v0.2'
+  ): Promise<string> {
+    try {
+      const prompt = `You are a helpful debate assistant. Provide a thoughtful, structured response to the following argument or topic. Focus on logical analysis, counterpoints, and constructive debate elements:\n\n${input}\n\nResponse:`;
+      
+      const response = await fetch(`${this.HF_API_BASE}/${modelId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.HF_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          inputs: prompt,
+          parameters: {
+            max_new_tokens: 150,
+            temperature: 0.7,
+            top_p: 0.9,
+            do_sample: true,
+            return_full_text: false
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (Array.isArray(data) && data[0]?.generated_text) {
+        return data[0].generated_text.trim();
+      } else if (data.generated_text) {
+        return data.generated_text.trim();
+      } else {
+        throw new Error('Unexpected response format');
+      }
+    } catch (error) {
+      console.error('Hugging Face API error:', error);
+      return 'I apologize, but I encountered an error generating a response. Please try again.';
     }
   }
 
@@ -75,10 +152,10 @@ User identified: ${userAnswer}
 Correct answer: ${correctAnswer}
 Give constructive feedback in 15-20 words:`;
 
-      const response = await fetch(this.API_URL, {
+      const response = await fetch(`${this.HF_API_BASE}/mistralai/Mistral-7B-Instruct-v0.2`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${this.HF_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -107,7 +184,7 @@ Give constructive feedback in 15-20 words:`;
     const oppositePosition = position === 'for' ? 'against' : 'for';
     return `Debate topic: ${topic}
 You are arguing ${oppositePosition}. User said: "${userArgument}"
-Your counter-argument (15-20 words, be persuasive but argumentative):`;
+Provide a counter-argument (50-75 words, be persuasive but respectful):`;
   }
 
   private static generateMockResponse(userArgument: string, position: 'for' | 'against'): LLMResponse {
