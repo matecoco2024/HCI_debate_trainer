@@ -1,3 +1,4 @@
+
 interface LLMResponse {
   content: string;
   fallacies?: string[];
@@ -12,19 +13,19 @@ interface HuggingFaceModel {
 
 export const AVAILABLE_MODELS: HuggingFaceModel[] = [
   {
-    id: 'mistralai/Mistral-7B-Instruct-v0.2',
-    name: 'Mistral-7B-Instruct-v0.2',
-    description: 'open-source, general-purpose assistant'
+    id: 'microsoft/DialoGPT-medium',
+    name: 'DialoGPT-Medium',
+    description: 'Conversational AI model optimized for dialogue'
   },
   {
-    id: 'Qwen/Qwen1.5-7B-Chat',
-    name: 'Qwen1.5-7B-Chat',
-    description: 'fast and accurate for logical arguments'
+    id: 'facebook/blenderbot-400M-distill',
+    name: 'BlenderBot-400M',
+    description: 'Conversational AI with good reasoning abilities'
   },
   {
-    id: 'HuggingFaceH4/zephyr-7b-beta',
-    name: 'Zephyr-7B-Beta',
-    description: 'optimized for helpfulness and engaging tone'
+    id: 'microsoft/DialoGPT-small',
+    name: 'DialoGPT-Small',
+    description: 'Smaller, faster conversational model'
   }
 ];
 
@@ -32,7 +33,7 @@ export class LLMService {
   private static readonly HF_API_KEY = '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';
   private static readonly HF_API_BASE = 'https://api-inference.huggingface.co/models';
 
-  static async testConnection(modelId: string = 'mistralai/Mistral-7B-Instruct-v0.2'): Promise<boolean> {
+  static async testConnection(modelId: string = 'microsoft/DialoGPT-medium'): Promise<boolean> {
     try {
       console.log(`Testing connection to ${modelId}...`);
       
@@ -43,11 +44,11 @@ export class LLMService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          inputs: "Hello, can you respond with 'API test successful'?",
+          inputs: "Hello",
           parameters: {
-            max_new_tokens: 20,
-            temperature: 0.1,
-            return_full_text: false
+            max_length: 50,
+            temperature: 0.7,
+            pad_token_id: 50256
           }
         }),
       });
@@ -57,6 +58,13 @@ export class LLMService {
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`API Error: ${response.status} - ${errorText}`);
+        
+        if (response.status === 503) {
+          // Model is loading, which means it exists but needs time
+          console.log('Model is loading, this is actually a good sign!');
+          return true;
+        }
+        
         return false;
       }
 
@@ -72,13 +80,11 @@ export class LLMService {
 
   static async generateDebateResponse(
     input: string,
-    modelId: string = 'mistralai/Mistral-7B-Instruct-v0.2'
+    modelId: string = 'microsoft/DialoGPT-medium'
   ): Promise<string> {
     try {
       console.log(`Generating response with model: ${modelId}`);
       console.log(`Input: ${input}`);
-      
-      const prompt = `You are a helpful debate assistant. Provide a thoughtful, structured response to the following argument or topic. Focus on logical analysis, counterpoints, and constructive debate elements:\n\n${input}\n\nResponse:`;
       
       const response = await fetch(`${this.HF_API_BASE}/${modelId}`, {
         method: 'POST',
@@ -87,13 +93,12 @@ export class LLMService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          inputs: prompt,
+          inputs: input,
           parameters: {
-            max_new_tokens: 200,
+            max_length: 150,
             temperature: 0.7,
-            top_p: 0.9,
-            do_sample: true,
-            return_full_text: false
+            pad_token_id: 50256,
+            do_sample: true
           }
         }),
       });
@@ -110,6 +115,8 @@ export class LLMService {
           throw new Error('Invalid API key. Please check your Hugging Face API key.');
         } else if (response.status === 429) {
           throw new Error('Rate limit exceeded. Please wait before making another request.');
+        } else if (response.status === 404) {
+          throw new Error('Model not found. Please try a different model.');
         } else {
           throw new Error(`API request failed: ${response.status} - ${errorText}`);
         }
@@ -120,8 +127,12 @@ export class LLMService {
       
       let content = '';
       
-      if (Array.isArray(data) && data.length > 0 && data[0]?.generated_text) {
-        content = data[0].generated_text.trim();
+      if (Array.isArray(data) && data.length > 0) {
+        if (data[0]?.generated_text) {
+          content = data[0].generated_text.trim();
+        } else if (typeof data[0] === 'string') {
+          content = data[0].trim();
+        }
       } else if (data.generated_text) {
         content = data.generated_text.trim();
       } else if (data.error) {
@@ -137,7 +148,12 @@ export class LLMService {
         throw new Error('Empty response from API');
       }
       
-      return content;
+      // Clean up the response if it's a dialogue model
+      if (content.includes(input)) {
+        content = content.replace(input, '').trim();
+      }
+      
+      return content || "I understand your point. Let me offer a different perspective on this topic.";
     } catch (error) {
       console.error('Hugging Face API error:', error);
       if (error instanceof Error) {

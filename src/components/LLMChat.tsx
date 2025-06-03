@@ -16,7 +16,7 @@ interface ChatMessage {
 }
 
 const LLMChat: React.FC = () => {
-  const [selectedModel, setSelectedModel] = useState('mistralai/Mistral-7B-Instruct-v0.2');
+  const [selectedModel, setSelectedModel] = useState('microsoft/DialoGPT-medium');
   const [userInput, setUserInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -41,7 +41,7 @@ const LLMChat: React.FC = () => {
         setConnectionStatus('error');
         toast({
           title: "Connection Failed",
-          description: "Unable to connect to the Hugging Face API.",
+          description: "Unable to connect to the Hugging Face API. Try a different model.",
           variant: "destructive"
         });
       }
