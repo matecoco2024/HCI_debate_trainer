@@ -5,6 +5,8 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  // Set base URL for GitHub Pages deployment
+  base: mode === 'production' ? '/debate-wise-trainer-pro/' : '/',
   server: {
     host: "::",
     port: 8080,
