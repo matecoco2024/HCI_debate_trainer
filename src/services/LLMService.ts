@@ -1,4 +1,3 @@
-
 interface LLMResponse {
   content: string;
   fallacies?: string[];
@@ -30,17 +29,37 @@ export const AVAILABLE_MODELS: HuggingFaceModel[] = [
 ];
 
 export class LLMService {
-  private static readonly HF_API_KEY = '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';
+  private static readonly FALLBACK_API_KEY = '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';
   private static readonly HF_API_BASE = 'https://api-inference.huggingface.co/models';
+
+  private static getApiKey(): string {
+    // Get API key from localStorage settings
+    try {
+      const settingsData = localStorage.getItem('debate_trainer_settings');
+      if (settingsData) {
+        const settings = JSON.parse(settingsData);
+        if (settings.llmApiKey) {
+          console.log('Using API key from settings');
+          return settings.llmApiKey;
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load API key from settings:', error);
+    }
+    
+    console.log('Using fallback API key');
+    return this.FALLBACK_API_KEY;
+  }
 
   static async testConnection(modelId: string = 'microsoft/DialoGPT-medium'): Promise<boolean> {
     try {
-      console.log(`Testing connection to ${modelId}...`);
+      const apiKey = this.getApiKey();
+      console.log(`Testing connection to ${modelId} with API key: ${apiKey.substring(0, 10)}...`);
       
       const response = await fetch(`${this.HF_API_BASE}/${modelId}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.HF_API_KEY}`,
+          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -83,13 +102,15 @@ export class LLMService {
     modelId: string = 'microsoft/DialoGPT-medium'
   ): Promise<string> {
     try {
+      const apiKey = this.getApiKey();
       console.log(`Generating response with model: ${modelId}`);
       console.log(`Input: ${input}`);
+      console.log(`Using API key: ${apiKey.substring(0, 10)}...`);
       
       const response = await fetch(`${this.HF_API_BASE}/${modelId}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.HF_API_KEY}`,
+          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -112,7 +133,7 @@ export class LLMService {
         if (response.status === 503) {
           throw new Error('Model is currently loading. Please wait a moment and try again.');
         } else if (response.status === 401) {
-          throw new Error('Invalid API key. Please check your Hugging Face API key.');
+          throw new Error('Invalid API key. Please check your Hugging Face API key in Settings.');
         } else if (response.status === 429) {
           throw new Error('Rate limit exceeded. Please wait before making another request.');
         } else if (response.status === 404) {
@@ -171,6 +192,7 @@ export class LLMService {
     apiKey?: string
   ): Promise<LLMResponse> {
     const selectedModel = modelId || 'mistralai/Mistral-7B-Instruct-v0.2';
+    const activeApiKey = apiKey || this.getApiKey();
     
     try {
       const prompt = this.createCounterArgumentPrompt(topic, userArgument, position);
@@ -178,7 +200,7 @@ export class LLMService {
       const response = await fetch(`${this.HF_API_BASE}/${selectedModel}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.HF_API_KEY}`,
+          'Authorization': `Bearer ${activeApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -228,7 +250,9 @@ export class LLMService {
     correctAnswer: string,
     apiKey?: string
   ): Promise<string> {
-    if (!apiKey) {
+    const activeApiKey = apiKey || this.getApiKey();
+    
+    if (!activeApiKey) {
       return this.generateMockFeedback(userAnswer, correctAnswer);
     }
 
@@ -241,7 +265,7 @@ Give constructive feedback in 15-20 words:`;
       const response = await fetch(`${this.HF_API_BASE}/mistralai/Mistral-7B-Instruct-v0.2`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.HF_API_KEY}`,
+          'Authorization': `Bearer ${activeApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
