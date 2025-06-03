@@ -105,6 +105,7 @@ const DebatePractice: React.FC = () => {
         currentSession.topic.title,
         userInput.trim(),
         userPosition,
+        undefined,
         settings.llmApiKey
       );
 
