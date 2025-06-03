@@ -1,17 +1,54 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, type ButtonProps } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Send, MessageSquare, User, Bot } from 'lucide-react';
+import { ArrowLeft, Send, MessageSquare, User, Bot, Mic, MicOff } from 'lucide-react';
 import { useUser } from '../contexts/UserContext';
 import { getRandomTopic, getPersonalizedTopic } from '../data/debateTopics';
 import { DebateTopic, DebateMessage, DebateSession } from '../types';
 import { LLMService } from '../services/LLMService';
 import { StorageService } from '../services/StorageService';
 import { toast } from '@/hooks/use-toast';
+import AnimatedCoach from '../components/AnimatedCoach';
+
+// TypeScript declarations for Speech Recognition API
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
+
+interface SpeechRecognitionEvent {
+  resultIndex: number;
+  results: {
+    length: number;
+    [index: number]: {
+      isFinal: boolean;
+      [index: number]: {
+        transcript: string;
+      };
+    };
+  };
+}
+
+interface SpeechRecognitionErrorEvent {
+  error: string;
+}
+
+interface SpeechRecognition {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  onresult: (event: SpeechRecognitionEvent) => void;
+  onerror: (event: SpeechRecognitionErrorEvent) => void;
+  onend: () => void;
+}
 
 const DebatePractice: React.FC = () => {
   const navigate = useNavigate();
@@ -20,12 +57,60 @@ const DebatePractice: React.FC = () => {
   const [userPosition, setUserPosition] = useState<'for' | 'against'>('for');
   const [currentSession, setCurrentSession] = useState<DebateSession | null>(null);  const [userInput, setUserInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showTopicSelection, setShowTopicSelection] = useState(true);
-  const [coachingFeedback, setCoachingFeedback] = useState<string>('');
-
+  const [showTopicSelection, setShowTopicSelection] = useState(true);  const [coachingFeedback, setCoachingFeedback] = useState<string>('');
+  const [coachPersonality, setCoachPersonality] = useState<'encouraging' | 'analytical' | 'friendly'>('encouraging');
+  const [currentAIPersonality, setCurrentAIPersonality] = useState<string>('AI Debater');
+  const [isListening, setIsListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   useEffect(() => {
     if (!selectedTopic) {
       loadRandomTopic();
+    }
+    
+    // Initialize speech recognition
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      setSpeechSupported(true);
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      
+      if (recognitionRef.current) {
+        recognitionRef.current.continuous = true;
+        recognitionRef.current.interimResults = true;
+        recognitionRef.current.lang = 'en-US';
+        
+        recognitionRef.current.onresult = (event) => {
+          let finalTranscript = '';
+          let interimTranscript = '';
+          
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript;
+            } else {
+              interimTranscript += transcript;
+            }
+          }
+          
+          if (finalTranscript) {
+            setUserInput(prev => prev + finalTranscript);
+          }
+        };
+        
+        recognitionRef.current.onerror = (event) => {
+          console.error('Speech recognition error:', event.error);
+          setIsListening(false);
+          toast({
+            title: "Speech Recognition Error",
+            description: "There was an issue with speech recognition. Please try again.",
+            variant: "destructive"
+          });
+        };
+        
+        recognitionRef.current.onend = () => {
+          setIsListening(false);
+        };
+      }
     }
   }, []);
 
@@ -104,9 +189,7 @@ const DebatePractice: React.FC = () => {
         userPosition,
         undefined,
         settings.llmApiKey
-      );
-
-      // Add AI response
+      );      // Add AI response
       const aiMessage: DebateMessage = {
         id: `msg_${Date.now()}_ai`,
         speaker: 'ai',
@@ -116,6 +199,18 @@ const DebatePractice: React.FC = () => {
         fallacies: llmResponse.fallacies,
         coaching: llmResponse.coaching
       };
+
+      // Extract AI personality from response patterns
+      const content = llmResponse.content.toLowerCase();
+      if (content.includes('data') || content.includes('numbers') || content.includes('studies')) {
+        setCurrentAIPersonality('Alex (Evidence-Based)');
+      } else if (content.includes('break down') || content.includes('systematically') || content.includes('step')) {
+        setCurrentAIPersonality('Sam (Analytical)');
+      } else if (content.includes('like') || content.includes('think of') || content.includes('picture')) {
+        setCurrentAIPersonality('Jordan (Creative)');
+      } else {
+        setCurrentAIPersonality('AI Debater');
+      }
 
       const nextRound = currentSession.currentRound + 1;
       const isCompleted = nextRound > 5;
@@ -128,11 +223,19 @@ const DebatePractice: React.FC = () => {
         endTime: isCompleted ? new Date().toISOString() : undefined,
         score: calculateScore(updatedSession.messages.length)
       };      setCurrentSession(finalSession);
-      StorageService.saveDebateSession(finalSession);
-
-      // Set coaching feedback if available
+      StorageService.saveDebateSession(finalSession);      // Set coaching feedback if available
       if (llmResponse.coaching) {
         setCoachingFeedback(llmResponse.coaching);
+        
+        // Dynamically adjust coach personality based on debate progress
+        const round = currentSession.currentRound;
+        if (round <= 2) {
+          setCoachPersonality('encouraging'); // Early rounds: encouraging
+        } else if (round <= 4) {
+          setCoachPersonality('analytical'); // Mid rounds: analytical
+        } else {
+          setCoachPersonality('friendly'); // Final rounds: friendly
+        }
       }
 
       if (isCompleted) {
@@ -168,12 +271,43 @@ const DebatePractice: React.FC = () => {
     
     return Math.min(100, baseScore + engagementBonus + completionBonus);
   };
-
   const handleNewTopic = () => {
     setShowTopicSelection(true);
     setCurrentSession(null);
     setUserInput('');
     loadRandomTopic();
+  };
+
+  const toggleSpeechRecognition = () => {
+    if (!speechSupported || !recognitionRef.current) {
+      toast({
+        title: "Speech Recognition Not Supported",
+        description: "Your browser doesn't support speech recognition.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+        toast({
+          title: "Listening...",
+          description: "Speak your argument. Click the mic again to stop.",
+        });
+      } catch (error) {
+        console.error('Error starting speech recognition:', error);
+        toast({
+          title: "Error",
+          description: "Failed to start speech recognition.",
+          variant: "destructive"
+        });
+      }
+    }
   };
 
   if (showTopicSelection && selectedTopic) {
@@ -319,8 +453,7 @@ const DebatePractice: React.FC = () => {
                         className={`flex gap-3 ${
                           message.speaker === 'user' ? 'flex-row-reverse' : ''
                         }`}
-                      >
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      >                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                           message.speaker === 'user' 
                             ? 'bg-blue-500' 
                             : 'bg-purple-500'
@@ -334,18 +467,16 @@ const DebatePractice: React.FC = () => {
                         <div className={`flex-1 max-w-2xl ${
                           message.speaker === 'user' ? 'text-right' : ''
                         }`}>
-                          <div className={`inline-block p-4 rounded-lg ${
+                          {message.speaker === 'ai' && (
+                            <div className="text-xs text-purple-600 font-medium mb-1">
+                              {currentAIPersonality}
+                            </div>
+                          )}                          <div className={`inline-block p-4 rounded-lg ${
                             message.speaker === 'user'
                               ? 'bg-blue-500 text-white'
                               : 'bg-gray-100 text-gray-800'
                           }`}>
                             <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
-                            
-                            {message.fallacies && message.fallacies.length > 0 && (
-                              <div className="mt-2 text-xs opacity-75">
-                                <p>⚠️ Potential fallacy: {message.fallacies.join(', ')}</p>
-                              </div>
-                            )}
                           </div>
                           
                           <p className="text-xs text-gray-500 mt-1">
@@ -369,9 +500,7 @@ const DebatePractice: React.FC = () => {
                     )}
                   </div>
                 </CardContent>
-              </Card>
-
-              {/* Input */}
+              </Card>              {/* Input */}
               {!currentSession.completed && (
                 <Card className="bg-white/95 backdrop-blur-sm">
                   <CardContent className="p-6">
@@ -384,18 +513,39 @@ const DebatePractice: React.FC = () => {
                         disabled={isLoading}
                       />
                       
-                      <Button
-                        onClick={handleSendMessage}
-                        disabled={!userInput.trim() || isLoading}
-                        className="bg-gradient-secondary hover:opacity-90 text-white px-6"
-                      >
-                        <Send className="w-4 h-4" />
-                      </Button>
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          onClick={handleSendMessage}
+                          disabled={!userInput.trim() || isLoading}
+                          className="bg-gradient-secondary hover:opacity-90 text-white px-6"
+                        >
+                          <Send className="w-4 h-4" />
+                        </Button>
+                        
+                        {speechSupported && (
+                          <Button
+                            onClick={toggleSpeechRecognition}
+                            disabled={isLoading}
+                            variant={isListening ? "destructive" : "outline"}
+                            className={`px-6 ${isListening ? 'animate-pulse' : ''}`}
+                            title={isListening ? "Stop listening" : "Start speech-to-text"}
+                          >
+                            {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     
-                    <p className="text-sm text-gray-600 mt-2">
-                      Round {currentSession.currentRound}/5 - Present your strongest arguments
-                    </p>
+                    <div className="flex justify-between items-center mt-2">
+                      <p className="text-sm text-gray-600">
+                        Round {currentSession.currentRound}/5 - Present your strongest arguments
+                      </p>
+                      {speechSupported && (
+                        <p className="text-xs text-gray-500">
+                          {isListening ? "🎤 Listening..." : "Click mic to use speech-to-text"}
+                        </p>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               )}
@@ -417,41 +567,51 @@ const DebatePractice: React.FC = () => {
                   </CardContent>
                 </Card>
               )}
-            </div>
-
-            {/* Coaching Panel */}
+            </div>            {/* Coaching Panel */}
             <div className="lg:col-span-1">
               <Card className="bg-white/95 backdrop-blur-sm sticky top-8">
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
-                    🎯 Coach
+                    🎯 AI Coach
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4">
-                  {coachingFeedback ? (
-                    <div className="space-y-3">
-                      <div className="bg-blue-50 border-l-4 border-blue-400 p-3 rounded-r">
-                        <p className="text-sm text-blue-800 leading-relaxed">
-                          {coachingFeedback}
-                        </p>
+                  <div className="flex flex-col items-center space-y-4">                    {/* Animated Coach Character */}
+                    <AnimatedCoach 
+                      isActive={!!coachingFeedback || isLoading}
+                      message={coachingFeedback || (isLoading ? "Let me analyze your argument..." : undefined)}
+                      personality={coachPersonality}
+                    />
+                      {/* Coaching Feedback Area */}
+                    {coachingFeedback && (
+                      <div className="w-full space-y-3">
+                        <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-l-4 border-purple-400 p-3 rounded-r">
+                          <p className="text-sm text-purple-800 leading-relaxed font-medium">
+                            💡 {coachingFeedback}
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCoachingFeedback('')}
+                          className="w-full text-xs hover:bg-purple-50"
+                        >
+                          Got it! ✨
+                        </Button>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCoachingFeedback('')}
-                        className="w-full text-xs"
-                      >
-                        Clear
-                      </Button>
+                    )}
+
+                    {/* Coaching Tips */}
+                    <div className="w-full bg-gray-50 rounded-lg p-3">
+                      <h4 className="text-xs font-semibold text-gray-700 mb-2">💪 Quick Tips</h4>
+                      <ul className="text-xs text-gray-600 space-y-1">
+                        <li>• Use specific examples</li>
+                        <li>• Address counterarguments</li>
+                        <li>• Support with evidence</li>
+                        <li>• Stay logical and clear</li>
+                      </ul>
                     </div>
-                  ) : (
-                    <div className="text-center text-gray-500 py-8">
-                      <Bot className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">
-                        Make an argument to receive coaching feedback
-                      </p>
-                    </div>
-                  )}
+                  </div>
                 </CardContent>
               </Card>
             </div>

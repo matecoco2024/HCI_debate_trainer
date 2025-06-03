@@ -235,13 +235,11 @@ export class LLMService {
         console.log('Generated content too short, using mock response');
         return this.generateMockResponse(userArgument, position);
       }
-      
-      // Inject fallacies based on chance (30% probability)
-      const shouldIncludeFallacy = Math.random() < 0.3;
-      const fallacies = shouldIncludeFallacy ? this.injectRandomFallacy() : [];      return {
+        // Fallacy detection disabled as requested
+      return {
         content: this.ensureResponseLength(content),
-        fallacies,
-        coaching: this.generateCoaching(userArgument)
+        fallacies: [], // Fallacy alerts removed
+        coaching: await this.generateSmartCoaching(userArgument, content)
       };
     } catch (error) {
       console.error('Hugging Face API error:', error);
@@ -301,34 +299,93 @@ Give constructive feedback in 15-20 words: [/INST]`;
     position: 'for' | 'against'
   ): string {
     const oppositePosition = position === 'for' ? 'against' : 'for';
-    return `<s>[INST] Debate topic: "${topic}"
+    
+    // Debater personalities - choose randomly for variety
+    const debaterPersonalities = [
+      {
+        name: "Alex",
+        style: "passionate and direct, uses strong evidence",
+        trait: "I'm passionate about facts and love challenging ideas with solid evidence."
+      },
+      {
+        name: "Sam",
+        style: "analytical and methodical, breaks down arguments logically",
+        trait: "I approach debates systematically, examining each part of your argument carefully."
+      },
+      {
+        name: "Jordan",
+        style: "witty and sharp, uses clever analogies",
+        trait: "I enjoy finding creative angles and using analogies to make my points stick."
+      }
+    ];
+    
+    const personality = debaterPersonalities[Math.floor(Math.random() * debaterPersonalities.length)];
+    
+    return `<s>[INST] You are ${personality.name}, a skilled debater. ${personality.trait}
 
+Topic: "${topic}"
 User argues ${position}: "${userArgument}"
 
-You argue ${oppositePosition}. Respond with exactly 1-2 short sentences (max 25 words). Be direct and persuasive. [/INST]`;
-  }
-  private static generateMockResponse(userArgument: string, position: 'for' | 'against'): LLMResponse {
-    const mockResponses = {
+As ${personality.name}, argue ${oppositePosition} in your ${personality.style} style. Keep it to 1-2 punchy sentences (max 25 words). Show your personality! [/INST]`;
+  }  private static generateMockResponse(userArgument: string, position: 'for' | 'against'): LLMResponse {
+    // Personality-driven mock responses with distinct character voices
+    const alexResponses = {
       for: [
-        "The economic data contradicts that assumption completely.",
-        "Historical examples prove the opposite outcome occurs consistently.",
-        "You're missing critical environmental factors in your analysis.",
-        "That approach ignores fundamental human rights principles entirely."
+        "Hold up! The data completely contradicts that claim.",
+        "Actually, three major studies prove exactly the opposite.",
+        "That ignores the environmental impact entirely.",
+        "The human rights angle makes this a non-starter."
       ],
       against: [
-        "Recent studies overwhelmingly support this position with evidence.",
-        "Your reasoning contains several logical gaps and inconsistencies.",
-        "The long-term benefits clearly outweigh any short-term costs.",
-        "This policy has succeeded in multiple countries already."
+        "The latest research backs this up 100%.",
+        "Your argument has several logical gaps here.",
+        "The economic benefits clearly outweigh the costs.",
+        "Five countries already implemented this successfully."
       ]
     };
 
-    const responses = mockResponses[position === 'for' ? 'against' : 'for'];
-    const content = responses[Math.floor(Math.random() * responses.length)];
+    const samResponses = {
+      for: [
+        "Let me break down why that logic doesn't hold.",
+        "Systematically examining this, we see three flaws.",
+        "The premise itself contains a fundamental error.",
+        "Step by step analysis reveals the opposite."
+      ],
+      against: [
+        "The evidence methodically supports this position.",
+        "Breaking this down logically strengthens the case.",
+        "Each component of this argument is solid.",
+        "The systematic approach here is bulletproof."
+      ]
+    };
+
+    const jordanResponses = {
+      for: [
+        "That's like saying umbrellas cause rain!",
+        "Picture this: would you buy a car without wheels?",
+        "It's the classic 'forest for the trees' mistake.",
+        "This reminds me of rearranging deck chairs on the Titanic."
+      ],
+      against: [
+        "Think of it like building a house on solid rock.",
+        "It's the difference between a band-aid and surgery.",
+        "This is chess while you're playing checkers.",
+        "Like comparing a flashlight to the sun."
+      ]
+    };
+
+    // Randomly choose a personality for variety
+    const personalities = [
+      { name: 'Alex', responses: alexResponses },
+      { name: 'Sam', responses: samResponses },
+      { name: 'Jordan', responses: jordanResponses }
+    ];
     
-    // 30% chance to include a fallacy
-    const shouldIncludeFallacy = Math.random() < 0.3;
-    const fallacies = shouldIncludeFallacy ? this.injectRandomFallacy() : [];
+    const personality = personalities[Math.floor(Math.random() * personalities.length)];
+    const responses = personality.responses[position === 'for' ? 'against' : 'for'];
+    const content = responses[Math.floor(Math.random() * responses.length)];
+      // Fallacy detection disabled as requested
+    const fallacies: string[] = []; // No fallacies
 
     return {
       content,
@@ -351,9 +408,11 @@ You argue ${oppositePosition}. Respond with exactly 1-2 short sentences (max 25 
   }  private static async generateSmartCoaching(userArgument: string, aiResponse: string): Promise<string> {
     try {
       const activeApiKey = this.getApiKey();
-      const prompt = `<s>[INST] As a debate coach, give 2 short phrases of feedback on this argument: "${userArgument}"
+      const prompt = `<s>[INST] You are Coach Maya, an encouraging debate coach who's been training champions for 15 years. You're supportive but direct, with a warm personality.
 
-Be extremely concise. Maximum 10 words total. Focus on one main improvement. [/INST]`;
+Student's argument: "${userArgument}"
+
+As Coach Maya, give quick feedback in your encouraging style. Maximum 8 words, like you're whispering advice during a debate. Be personal and motivating! [/INST]`;
 
       const response = await fetch(`${this.HF_API_BASE}/mistralai/Mistral-7B-Instruct-v0.3`, {
         method: 'POST',
@@ -364,8 +423,8 @@ Be extremely concise. Maximum 10 words total. Focus on one main improvement. [/I
         body: JSON.stringify({
           inputs: prompt,
           parameters: {
-            max_new_tokens: 20,
-            temperature: 0.5,
+            max_new_tokens: 15,
+            temperature: 0.7,
             return_full_text: false
           }
         }),
@@ -384,20 +443,29 @@ Be extremely concise. Maximum 10 words total. Focus on one main improvement. [/I
       console.error('Smart coaching generation error:', error);
       return this.generateCoaching(userArgument);
     }
-  }
-
-  private static generateCoaching(userArgument: string): string {
+  }  private static generateCoaching(userArgument: string): string {
+    // Coach Maya's encouraging and varied feedback
     const coachingTips = [
-      "Add specific data. Strengthen with examples.",
-      "Good point! Address counterarguments next.",
-      "Clarify logic. Connect premises better.",
-      "Avoid absolutes. Use evidence instead.",
-      "Nice approach! Consider broader impacts.",
-      "Too general. Be more specific.",
-      "Strong start. Add expert sources.",
-      "Good reasoning. Anticipate objections.",
-      "Solid argument. Back with statistics.",
-      "Clear position. Explain consequences better."
+      "Great start! Try adding some data.",
+      "Nice point! Counter their objections next.",
+      "Good logic! Connect it to real impact.",
+      "Strong! Avoid absolutes like 'always' though.",
+      "Love the passion! What's the evidence?",
+      "Solid reasoning! Be more specific here.",
+      "Excellent! Quote an expert to strengthen this.",
+      "Smart approach! Anticipate their comeback.",
+      "Perfect direction! Back it with numbers.",
+      "Brilliant insight! Explain the consequences.",
+      "You're onto something! Add a real example.",
+      "Nice angle! Address the other side too.",
+      "Good foundation! What's the bigger picture?",
+      "Strong opener! How does this help people?",
+      "Smart thinking! Make it more concrete.",
+      "Excellent point! Why should they care?",
+      "Great passion! Show them the proof.",
+      "Nice logic! Connect to their values.",
+      "Solid start! What happens if we don't?",
+      "Perfect! Now make it unforgettable."
     ];
 
     return coachingTips[Math.floor(Math.random() * coachingTips.length)];
