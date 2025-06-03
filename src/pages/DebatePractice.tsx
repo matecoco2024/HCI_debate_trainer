@@ -18,9 +18,10 @@ const DebatePractice: React.FC = () => {
   const { userModel, settings, updateUserModel } = useUser();
   const [selectedTopic, setSelectedTopic] = useState<DebateTopic | null>(null);
   const [userPosition, setUserPosition] = useState<'for' | 'against'>('for');
-  const [currentSession, setCurrentSession] = useState<DebateSession | null>(null);
-  const [userInput, setUserInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);  const [showTopicSelection, setShowTopicSelection] = useState(true);
+  const [currentSession, setCurrentSession] = useState<DebateSession | null>(null);  const [userInput, setUserInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [showTopicSelection, setShowTopicSelection] = useState(true);
+  const [coachingFeedback, setCoachingFeedback] = useState<string>('');
 
   useEffect(() => {
     if (!selectedTopic) {
@@ -126,10 +127,13 @@ const DebatePractice: React.FC = () => {
         completed: isCompleted,
         endTime: isCompleted ? new Date().toISOString() : undefined,
         score: calculateScore(updatedSession.messages.length)
-      };
-
-      setCurrentSession(finalSession);
+      };      setCurrentSession(finalSession);
       StorageService.saveDebateSession(finalSession);
+
+      // Set coaching feedback if available
+      if (llmResponse.coaching) {
+        setCoachingFeedback(llmResponse.coaching);
+      }
 
       if (isCompleted) {
         // Update user model
@@ -141,15 +145,6 @@ const DebatePractice: React.FC = () => {
         toast({
           title: "Debate Complete!",
           description: `Great debate! Your score: ${finalSession.score}/100`,
-        });
-      }
-
-      // Show coaching feedback if available
-      if (llmResponse.coaching) {
-        toast({
-          title: "Coaching Tip",
-          description: llmResponse.coaching,
-          duration: 5000
         });
       }
 
@@ -310,116 +305,157 @@ const DebatePractice: React.FC = () => {
           <Badge variant="secondary" className="bg-white/20 text-white">
             {currentSession.completed ? 'Completed' : 'In Progress'}
           </Badge>
-        </div>
+        </div>        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Main Chat Area */}
+            <div className="lg:col-span-3">
+              {/* Messages */}
+              <Card className="bg-white/95 backdrop-blur-sm mb-6">
+                <CardContent className="p-6">
+                  <div className="space-y-4 max-h-[600px] overflow-y-auto">
+                    {currentSession.messages.map((message) => (
+                      <div
+                        key={message.id}
+                        className={`flex gap-3 ${
+                          message.speaker === 'user' ? 'flex-row-reverse' : ''
+                        }`}
+                      >
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                          message.speaker === 'user' 
+                            ? 'bg-blue-500' 
+                            : 'bg-purple-500'
+                        }`}>
+                          {message.speaker === 'user' ? 
+                            <User className="w-4 h-4 text-white" /> : 
+                            <Bot className="w-4 h-4 text-white" />
+                          }
+                        </div>
+                        
+                        <div className={`flex-1 max-w-2xl ${
+                          message.speaker === 'user' ? 'text-right' : ''
+                        }`}>
+                          <div className={`inline-block p-4 rounded-lg ${
+                            message.speaker === 'user'
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                            
+                            {message.fallacies && message.fallacies.length > 0 && (
+                              <div className="mt-2 text-xs opacity-75">
+                                <p>⚠️ Potential fallacy: {message.fallacies.join(', ')}</p>
+                              </div>
+                            )}
+                          </div>
+                          
+                          <p className="text-xs text-gray-500 mt-1">
+                            Round {message.round}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {isLoading && (
+                      <div className="flex gap-3">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-purple-500">
+                          <Bot className="w-4 h-4 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="inline-block p-4 rounded-lg bg-gray-100 text-gray-800">
+                            <p>Thinking...</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
 
-        <div className="max-w-4xl mx-auto">          {/* Messages */}
-          <Card className="bg-white/95 backdrop-blur-sm mb-6">
-            <CardContent className="p-6">
-              <div className="space-y-4 max-h-[600px] overflow-y-auto">
-                {currentSession.messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex gap-3 ${
-                      message.speaker === 'user' ? 'flex-row-reverse' : ''
-                    }`}
-                  >
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      message.speaker === 'user' 
-                        ? 'bg-blue-500' 
-                        : 'bg-purple-500'
-                    }`}>
-                      {message.speaker === 'user' ? 
-                        <User className="w-4 h-4 text-white" /> : 
-                        <Bot className="w-4 h-4 text-white" />
-                      }
+              {/* Input */}
+              {!currentSession.completed && (
+                <Card className="bg-white/95 backdrop-blur-sm">
+                  <CardContent className="p-6">
+                    <div className="flex gap-4">
+                      <Textarea
+                        value={userInput}
+                        onChange={(e) => setUserInput(e.target.value)}
+                        placeholder="Present your argument..."
+                        className="flex-1 min-h-[100px]"
+                        disabled={isLoading}
+                      />
+                      
+                      <Button
+                        onClick={handleSendMessage}
+                        disabled={!userInput.trim() || isLoading}
+                        className="bg-gradient-secondary hover:opacity-90 text-white px-6"
+                      >
+                        <Send className="w-4 h-4" />
+                      </Button>
                     </div>
                     
-                    <div className={`flex-1 max-w-3xl ${
-                      message.speaker === 'user' ? 'text-right' : ''
-                    }`}>
-                      <div className={`inline-block p-4 rounded-lg ${
-                        message.speaker === 'user'
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
-                        
-                        {message.fallacies && message.fallacies.length > 0 && (
-                          <div className="mt-2 text-xs opacity-75">
-                            <p>⚠️ Potential fallacy: {message.fallacies.join(', ')}</p>
-                          </div>
-                        )}
+                    <p className="text-sm text-gray-600 mt-2">
+                      Round {currentSession.currentRound}/5 - Present your strongest arguments
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Completion Message */}
+              {currentSession.completed && (
+                <Card className="bg-white/95 backdrop-blur-sm border-l-4 border-green-500">
+                  <CardContent className="p-6 text-center">
+                    <h3 className="text-xl font-semibold mb-2">Debate Complete!</h3>
+                    <p className="text-gray-700 mb-4">
+                      Final Score: {currentSession.score}/100
+                    </p>
+                    <Button
+                      onClick={handleNewTopic}
+                      className="bg-gradient-primary hover:opacity-90 text-white"
+                    >
+                      Start New Debate
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* Coaching Panel */}
+            <div className="lg:col-span-1">
+              <Card className="bg-white/95 backdrop-blur-sm sticky top-8">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    🎯 Coach
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4">
+                  {coachingFeedback ? (
+                    <div className="space-y-3">
+                      <div className="bg-blue-50 border-l-4 border-blue-400 p-3 rounded-r">
+                        <p className="text-sm text-blue-800 leading-relaxed">
+                          {coachingFeedback}
+                        </p>
                       </div>
-                      
-                      <p className="text-xs text-gray-500 mt-1">
-                        Round {message.round}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCoachingFeedback('')}
+                        className="w-full text-xs"
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="text-center text-gray-500 py-8">
+                      <Bot className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">
+                        Make an argument to receive coaching feedback
                       </p>
                     </div>
-                  </div>
-                ))}
-                
-                {isLoading && (
-                  <div className="flex gap-3">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center bg-purple-500">
-                      <Bot className="w-4 h-4 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="inline-block p-4 rounded-lg bg-gray-100 text-gray-800">
-                        <p>Thinking...</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Input */}
-          {!currentSession.completed && (
-            <Card className="bg-white/95 backdrop-blur-sm">
-              <CardContent className="p-6">
-                <div className="flex gap-4">
-                  <Textarea
-                    value={userInput}
-                    onChange={(e) => setUserInput(e.target.value)}
-                    placeholder="Present your argument..."
-                    className="flex-1 min-h-[100px]"
-                    disabled={isLoading}
-                  />
-                  
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={!userInput.trim() || isLoading}
-                    className="bg-gradient-secondary hover:opacity-90 text-white px-6"
-                  >
-                    <Send className="w-4 h-4" />
-                  </Button>
-                </div>
-                
-                <p className="text-sm text-gray-600 mt-2">
-                  Round {currentSession.currentRound}/5 - Present your strongest arguments
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Completion Message */}
-          {currentSession.completed && (
-            <Card className="bg-white/95 backdrop-blur-sm border-l-4 border-green-500">
-              <CardContent className="p-6 text-center">
-                <h3 className="text-xl font-semibold mb-2">Debate Complete!</h3>
-                <p className="text-gray-700 mb-4">
-                  Final Score: {currentSession.score}/100
-                </p>
-                <Button
-                  onClick={handleNewTopic}
-                  className="bg-gradient-primary hover:opacity-90 text-white"
-                >
-                  Start New Debate
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -238,9 +238,7 @@ export class LLMService {
       
       // Inject fallacies based on chance (30% probability)
       const shouldIncludeFallacy = Math.random() < 0.3;
-      const fallacies = shouldIncludeFallacy ? this.injectRandomFallacy() : [];
-
-      return {
+      const fallacies = shouldIncludeFallacy ? this.injectRandomFallacy() : [];      return {
         content: this.ensureResponseLength(content),
         fallacies,
         coaching: this.generateCoaching(userArgument)
@@ -350,14 +348,56 @@ You argue ${oppositePosition}. Respond with exactly 1-2 short sentences (max 25 
     ];
     
     return [fallacyTypes[Math.floor(Math.random() * fallacyTypes.length)]];
+  }  private static async generateSmartCoaching(userArgument: string, aiResponse: string): Promise<string> {
+    try {
+      const activeApiKey = this.getApiKey();
+      const prompt = `<s>[INST] As a debate coach, give 2 short phrases of feedback on this argument: "${userArgument}"
+
+Be extremely concise. Maximum 10 words total. Focus on one main improvement. [/INST]`;
+
+      const response = await fetch(`${this.HF_API_BASE}/mistralai/Mistral-7B-Instruct-v0.3`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${activeApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          inputs: prompt,
+          parameters: {
+            max_new_tokens: 20,
+            temperature: 0.5,
+            return_full_text: false
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('Smart coaching API error:', response.status);
+        return this.generateCoaching(userArgument);
+      }
+
+      const data = await response.json();
+      const coaching = Array.isArray(data) ? data[0]?.generated_text : data.generated_text;
+      
+      return coaching?.trim() || this.generateCoaching(userArgument);
+    } catch (error) {
+      console.error('Smart coaching generation error:', error);
+      return this.generateCoaching(userArgument);
+    }
   }
+
   private static generateCoaching(userArgument: string): string {
     const coachingTips = [
-      "Good point! Back it up with specific data.",
-      "Strong argument. Address counterarguments to strengthen it.",
-      "Well reasoned! Clarify the logical connections.",
-      "Solid foundation. Avoid absolute statements without proof.",
-      "Nice approach! Consider broader implications."
+      "Add specific data. Strengthen with examples.",
+      "Good point! Address counterarguments next.",
+      "Clarify logic. Connect premises better.",
+      "Avoid absolutes. Use evidence instead.",
+      "Nice approach! Consider broader impacts.",
+      "Too general. Be more specific.",
+      "Strong start. Add expert sources.",
+      "Good reasoning. Anticipate objections.",
+      "Solid argument. Back with statistics.",
+      "Clear position. Explain consequences better."
     ];
 
     return coachingTips[Math.floor(Math.random() * coachingTips.length)];
