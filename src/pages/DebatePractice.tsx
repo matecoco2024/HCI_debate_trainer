@@ -5,7 +5,6 @@ import { Button, type ButtonProps } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, Send, MessageSquare, User, Bot } from 'lucide-react';
 import { useUser } from '../contexts/UserContext';
 import { getRandomTopic, getPersonalizedTopic } from '../data/debateTopics';
@@ -13,7 +12,6 @@ import { DebateTopic, DebateMessage, DebateSession } from '../types';
 import { LLMService } from '../services/LLMService';
 import { StorageService } from '../services/StorageService';
 import { toast } from '@/hooks/use-toast';
-import LLMChat from '../components/LLMChat';
 
 const DebatePractice: React.FC = () => {
   const navigate = useNavigate();
@@ -22,9 +20,7 @@ const DebatePractice: React.FC = () => {
   const [userPosition, setUserPosition] = useState<'for' | 'against'>('for');
   const [currentSession, setCurrentSession] = useState<DebateSession | null>(null);
   const [userInput, setUserInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [showTopicSelection, setShowTopicSelection] = useState(true);
-  const [activeTab, setActiveTab] = useState('practice');
+  const [isLoading, setIsLoading] = useState(false);  const [showTopicSelection, setShowTopicSelection] = useState(true);
 
   useEffect(() => {
     if (!selectedTopic) {
@@ -202,99 +198,82 @@ const DebatePractice: React.FC = () => {
             <h1 className="text-3xl font-playfair font-bold text-white flex-1 text-center">
               AI Debate Practice
             </h1>
-          </div>
-
-          <div className="max-w-4xl mx-auto">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="practice">Structured Debate</TabsTrigger>
-                <TabsTrigger value="chat">LLM Chat Assistant</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="practice">
-                <Card className="bg-white/95 backdrop-blur-sm">
-                  <CardHeader>
-                    <CardTitle className="text-center text-2xl font-playfair">
-                      {selectedTopic.title}
-                    </CardTitle>
-                    <p className="text-center text-gray-600 mt-2">
-                      {selectedTopic.description}
-                    </p>
-                    <div className="flex justify-center mt-4">
-                      <Badge variant="secondary">
-                        Difficulty: {selectedTopic.difficulty}/5
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  
-                  <CardContent className="space-y-6">
-                    <div>
-                      <h3 className="font-semibold mb-4 text-center">Choose your position:</h3>
-                      <div className="grid gap-4">
-                        <label className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
-                          <input
-                            type="radio"
-                            name="position"
-                            value="for"
-                            checked={userPosition === 'for'}
-                            onChange={(e) => setUserPosition(e.target.value as 'for')}
-                            className="text-blue-600"
-                          />
-                          <div>
-                            <p className="font-medium">For</p>
-                            <p className="text-sm text-gray-600">{selectedTopic.forPosition}</p>
-                          </div>
-                        </label>
-                        
-                        <label className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
-                          <input
-                            type="radio"
-                            name="position"
-                            value="against"
-                            checked={userPosition === 'against'}
-                            onChange={(e) => setUserPosition(e.target.value as 'against')}
-                            className="text-blue-600"
-                          />
-                          <div>
-                            <p className="font-medium">Against</p>
-                            <p className="text-sm text-gray-600">{selectedTopic.againstPosition}</p>
-                          </div>
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-4">
-                      <Button
-                        onClick={startDebate}
-                        className="flex-1 bg-gradient-accent hover:opacity-90 text-white py-3"
-                      >
-                        Start Debate
-                      </Button>
-                      
-                      <Button
-                        onClick={handleNewTopic}
-                        variant="outline"
-                        className="px-6"
-                      >
-                        New Topic
-                      </Button>
-                    </div>
-
-                    {settings.isPersonalized && (
-                      <p className="text-sm text-center text-gray-600">
-                        This topic is selected based on your skill level ({userModel.skillLevel}/5)
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-              
-              <TabsContent value="chat">
-                <div className="bg-white/95 backdrop-blur-sm rounded-lg p-6">
-                  <LLMChat />
+          </div>          <div className="max-w-4xl mx-auto">
+            <Card className="bg-white/95 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="text-center text-2xl font-playfair">
+                  {selectedTopic.title}
+                </CardTitle>
+                <p className="text-center text-gray-600 mt-2">
+                  {selectedTopic.description}
+                </p>
+                <div className="flex justify-center mt-4">
+                  <Badge variant="secondary">
+                    Difficulty: {selectedTopic.difficulty}/5
+                  </Badge>
                 </div>
-              </TabsContent>
-            </Tabs>
+              </CardHeader>
+              
+              <CardContent className="space-y-6">
+                <div>
+                  <h3 className="font-semibold mb-4 text-center">Choose your position:</h3>
+                  <div className="grid gap-4">
+                    <label className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
+                      <input
+                        type="radio"
+                        name="position"
+                        value="for"
+                        checked={userPosition === 'for'}
+                        onChange={(e) => setUserPosition(e.target.value as 'for')}
+                        className="text-blue-600"
+                      />
+                      <div>
+                        <p className="font-medium">For</p>
+                        <p className="text-sm text-gray-600">{selectedTopic.forPosition}</p>
+                      </div>
+                    </label>
+                    
+                    <label className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
+                      <input
+                        type="radio"
+                        name="position"
+                        value="against"
+                        checked={userPosition === 'against'}
+                        onChange={(e) => setUserPosition(e.target.value as 'against')}
+                        className="text-blue-600"
+                      />
+                      <div>
+                        <p className="font-medium">Against</p>
+                        <p className="text-sm text-gray-600">{selectedTopic.againstPosition}</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <Button
+                    onClick={startDebate}
+                    className="flex-1 bg-gradient-accent hover:opacity-90 text-white py-3"
+                  >
+                    Start Debate
+                  </Button>
+                  
+                  <Button
+                    onClick={handleNewTopic}
+                    variant="outline"
+                    className="px-6"
+                  >
+                    New Topic
+                  </Button>
+                </div>
+
+                {settings.isPersonalized && (
+                  <p className="text-sm text-center text-gray-600">
+                    This topic is selected based on your skill level ({userModel.skillLevel}/5)
+                  </p>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
@@ -333,11 +312,10 @@ const DebatePractice: React.FC = () => {
           </Badge>
         </div>
 
-        <div className="max-w-4xl mx-auto">
-          {/* Messages */}
+        <div className="max-w-4xl mx-auto">          {/* Messages */}
           <Card className="bg-white/95 backdrop-blur-sm mb-6">
             <CardContent className="p-6">
-              <div className="space-y-4 max-h-96 overflow-y-auto">
+              <div className="space-y-4 max-h-[600px] overflow-y-auto">
                 {currentSession.messages.map((message) => (
                   <div
                     key={message.id}
@@ -356,15 +334,15 @@ const DebatePractice: React.FC = () => {
                       }
                     </div>
                     
-                    <div className={`flex-1 ${
+                    <div className={`flex-1 max-w-3xl ${
                       message.speaker === 'user' ? 'text-right' : ''
                     }`}>
-                      <div className={`inline-block p-3 rounded-lg max-w-md ${
+                      <div className={`inline-block p-4 rounded-lg ${
                         message.speaker === 'user'
                           ? 'bg-blue-500 text-white'
                           : 'bg-gray-100 text-gray-800'
                       }`}>
-                        <p>{message.content}</p>
+                        <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
                         
                         {message.fallacies && message.fallacies.length > 0 && (
                           <div className="mt-2 text-xs opacity-75">
@@ -379,6 +357,19 @@ const DebatePractice: React.FC = () => {
                     </div>
                   </div>
                 ))}
+                
+                {isLoading && (
+                  <div className="flex gap-3">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center bg-purple-500">
+                      <Bot className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="inline-block p-4 rounded-lg bg-gray-100 text-gray-800">
+                        <p>Thinking...</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

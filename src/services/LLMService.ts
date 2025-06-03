@@ -195,12 +195,11 @@ export class LLMService {
         headers: {
           'Authorization': `Bearer ${activeApiKey}`,
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+        },        body: JSON.stringify({
           inputs: prompt,
           parameters: {
-            max_new_tokens: 120,
-            temperature: 0.7,
+            max_new_tokens: 50,
+            temperature: 0.8,
             top_p: 0.9,
             do_sample: true,
             return_full_text: false
@@ -298,33 +297,31 @@ Give constructive feedback in 15-20 words: [/INST]`;
       console.error('Feedback generation error:', error);
       return this.generateMockFeedback(userAnswer, correctAnswer);
     }
-  }
-  private static createCounterArgumentPrompt(
+  }  private static createCounterArgumentPrompt(
     topic: string,
     userArgument: string,
     position: 'for' | 'against'
   ): string {
     const oppositePosition = position === 'for' ? 'against' : 'for';
-    return `<s>[INST] You are participating in a respectful debate about: "${topic}"
+    return `<s>[INST] Debate topic: "${topic}"
 
-The other person argues ${position} and said: "${userArgument}"
+User argues ${position}: "${userArgument}"
 
-You argue ${oppositePosition}. Provide a thoughtful counter-argument in 2-3 sentences. Be persuasive but respectful. [/INST]`;
+You argue ${oppositePosition}. Respond with exactly 1-2 short sentences (max 25 words). Be direct and persuasive. [/INST]`;
   }
-
   private static generateMockResponse(userArgument: string, position: 'for' | 'against'): LLMResponse {
     const mockResponses = {
       for: [
-        "That's interesting, but consider the broader economic implications of this approach.",
-        "While I see your point, the evidence suggests a different conclusion entirely.",
-        "Your argument overlooks key factors that significantly impact the outcome.",
-        "That perspective ignores the fundamental principles underlying this issue completely."
+        "The economic data contradicts that assumption completely.",
+        "Historical examples prove the opposite outcome occurs consistently.",
+        "You're missing critical environmental factors in your analysis.",
+        "That approach ignores fundamental human rights principles entirely."
       ],
       against: [
-        "Actually, recent studies support the opposite view with compelling evidence.",
-        "Your reasoning contains flaws that undermine the entire argument's validity.",
-        "The benefits clearly outweigh any potential drawbacks you've mentioned here.",
-        "Historical precedent shows that approach leads to unintended negative consequences."
+        "Recent studies overwhelmingly support this position with evidence.",
+        "Your reasoning contains several logical gaps and inconsistencies.",
+        "The long-term benefits clearly outweigh any short-term costs.",
+        "This policy has succeeded in multiple countries already."
       ]
     };
 
@@ -354,14 +351,13 @@ You argue ${oppositePosition}. Provide a thoughtful counter-argument in 2-3 sent
     
     return [fallacyTypes[Math.floor(Math.random() * fallacyTypes.length)]];
   }
-
   private static generateCoaching(userArgument: string): string {
     const coachingTips = [
-      "Strong argument! Try backing it up with specific examples or data.",
-      "Good point, but consider addressing potential counterarguments to strengthen your position.",
-      "Well reasoned! You might want to clarify the logical connection between your premises.",
-      "Solid foundation, but avoid absolute statements unless you have definitive proof.",
-      "Nice approach! Consider the broader implications of your argument's conclusion."
+      "Good point! Back it up with specific data.",
+      "Strong argument. Address counterarguments to strengthen it.",
+      "Well reasoned! Clarify the logical connections.",
+      "Solid foundation. Avoid absolute statements without proof.",
+      "Nice approach! Consider broader implications."
     ];
 
     return coachingTips[Math.floor(Math.random() * coachingTips.length)];
@@ -374,11 +370,10 @@ You argue ${oppositePosition}. Provide a thoughtful counter-argument in 2-3 sent
       return `Good attempt! The correct answer was ${correctAnswer}. Review the argument structure.`;
     }
   }
-
   private static ensureResponseLength(content: string): string {
     const words = content.split(' ');
-    if (words.length > 20) {
-      return words.slice(0, 20).join(' ') + '...';
+    if (words.length > 30) {
+      return words.slice(0, 30).join(' ') + '...';
     }
     return content;
   }
