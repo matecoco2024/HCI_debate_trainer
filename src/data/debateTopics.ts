@@ -9,7 +9,8 @@ export const debateTopicsDatabase: DebateTopic[] = [
     description: 'Should social media companies be required to protect user privacy more strictly?',
     difficulty: 1,
     forPosition: 'Companies should implement stricter privacy protections',
-    againstPosition: 'Current privacy measures are sufficient for user protection'
+    againstPosition: 'Current privacy measures are sufficient for user protection',
+    category: 'technology'
   },
   {
     id: 'remote-work-1',
@@ -17,7 +18,8 @@ export const debateTopicsDatabase: DebateTopic[] = [
     description: 'Should companies allow employees to work from home permanently?',
     difficulty: 1,
     forPosition: 'Permanent remote work should be standard option',
-    againstPosition: 'In-office work is essential for productivity and collaboration'
+    againstPosition: 'In-office work is essential for productivity and collaboration',
+    category: 'economics'
   },
 
   // Difficulty Level 2 (Moderate complexity)
@@ -27,7 +29,8 @@ export const debateTopicsDatabase: DebateTopic[] = [
     description: 'Should artificial intelligence tools be integrated into classroom learning?',
     difficulty: 2,
     forPosition: 'AI tools enhance learning and prepare students for the future',
-    againstPosition: 'AI tools reduce critical thinking and create dependency'
+    againstPosition: 'AI tools reduce critical thinking and create dependency',
+    category: 'technology'
   },
   {
     id: 'universal-income-2',
@@ -35,7 +38,8 @@ export const debateTopicsDatabase: DebateTopic[] = [
     description: 'Should governments implement a universal basic income program?',
     difficulty: 2,
     forPosition: 'UBI reduces poverty and provides economic security',
-    againstPosition: 'UBI creates dependency and is economically unsustainable'
+    againstPosition: 'UBI creates dependency and is economically unsustainable',
+    category: 'economics'
   },
 
   // Difficulty Level 3 (Complex topics)
@@ -45,7 +49,8 @@ export const debateTopicsDatabase: DebateTopic[] = [
     description: 'Should genetic editing be allowed for human enhancement beyond medical treatment?',
     difficulty: 3,
     forPosition: 'Genetic enhancement can improve human capabilities and quality of life',
-    againstPosition: 'Genetic enhancement raises ethical concerns and increases inequality'
+    againstPosition: 'Genetic enhancement raises ethical concerns and increases inequality',
+    category: 'ethics'
   },
   {
     id: 'space-exploration-3',
@@ -53,7 +58,8 @@ export const debateTopicsDatabase: DebateTopic[] = [
     description: 'Should governments prioritize space exploration over addressing earthly problems?',
     difficulty: 3,
     forPosition: 'Space exploration drives innovation and ensures human survival',
-    againstPosition: 'Resources should focus on immediate terrestrial challenges'
+    againstPosition: 'Resources should focus on immediate terrestrial challenges',
+    category: 'politics'
   },
 
   // Difficulty Level 4 (Very complex)
@@ -63,7 +69,8 @@ export const debateTopicsDatabase: DebateTopic[] = [
     description: 'If AI systems develop consciousness, should they be granted legal rights?',
     difficulty: 4,
     forPosition: 'Conscious AI deserves protection and rights like any sentient being',
-    againstPosition: 'AI consciousness is uncertain and rights would create legal complications'
+    againstPosition: 'AI consciousness is uncertain and rights would create legal complications',
+    category: 'ethics'
   },
   {
     id: 'democracy-tech-4',
@@ -71,7 +78,8 @@ export const debateTopicsDatabase: DebateTopic[] = [
     description: 'Should democratic participation be enhanced through digital technology and algorithms?',
     difficulty: 4,
     forPosition: 'Technology can make democracy more inclusive and informed',
-    againstPosition: 'Digital democracy threatens traditional democratic values and privacy'
+    againstPosition: 'Digital democracy threatens traditional democratic values and privacy',
+    category: 'politics'
   },
 
   // Difficulty Level 5 (Expert level)
@@ -81,7 +89,8 @@ export const debateTopicsDatabase: DebateTopic[] = [
     description: 'Should humanity actively pursue technological enhancement to become posthuman?',
     difficulty: 5,
     forPosition: 'Posthuman enhancement is the natural next step in human evolution',
-    againstPosition: 'Posthuman transformation threatens human identity and natural values'
+    againstPosition: 'Posthuman transformation threatens human identity and natural values',
+    category: 'ethics'
   }
 ];
 

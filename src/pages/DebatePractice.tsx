@@ -137,7 +137,9 @@ const DebatePractice: React.FC = () => {
       currentRound: 1,
       score: 0,
       completed: false,
-      startTime: new Date().toISOString()
+      startTime: new Date().toISOString(),
+      coherenceScore: 0,
+      adaptivePrompts: []
     };
 
     setCurrentSession(session);
