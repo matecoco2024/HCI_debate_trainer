@@ -10,11 +10,12 @@ import OnboardingFlow from './OnboardingFlow';
 import ProgressDashboard from './ProgressDashboard';
 import TopicRecommendations from './TopicRecommendations';
 import FeedbackWidget from './FeedbackWidget';
+import LoginForm from './LoginForm';
 import { DebateTopic } from '../types';
 
 const MainMenu: React.FC = () => {
   const navigate = useNavigate();
-  const { userModel, settings, updateSettings } = useUser();
+  const { user, userModel, settings, isAuthenticated, isLoading, login, logout, updateSettings } = useUser();
   const [showDashboard, setShowDashboard] = useState(false);
 
   const handlePersonalizationToggle = (checked: boolean) => {
@@ -26,6 +27,11 @@ const MainMenu: React.FC = () => {
     sessionStorage.setItem('selectedTopic', JSON.stringify(topic));
     navigate('/debate');
   };
+
+  // Show login form if not authenticated
+  if (!isAuthenticated) {
+    return <LoginForm onLogin={login} isLoading={isLoading} />;
+  }
 
   // Show onboarding if not completed
   if (!settings.onboardingCompleted) {
@@ -73,9 +79,22 @@ const MainMenu: React.FC = () => {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-12 animate-fade-in">
-          <h1 className="text-5xl font-playfair font-bold text-white mb-4">
-            Critical Thinking Trainer
-          </h1>
+          <div className="flex justify-between items-start mb-4">
+            <div className="flex-1" />
+            <h1 className="text-5xl font-playfair font-bold text-white mb-4">
+              Critical Thinking Trainer
+            </h1>
+            <div className="flex-1 flex justify-end">
+              <Button
+                variant="ghost"
+                onClick={logout}
+                className="text-white hover:bg-white/20"
+              >
+                Logout ({user?.username})
+              </Button>
+            </div>
+          </div>
+          
           <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
             Enhance your logical reasoning skills through AI-powered debate practice and fallacy identification training
           </p>
