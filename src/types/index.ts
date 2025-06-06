@@ -8,6 +8,15 @@ export interface UserModel {
   totalDebateCount: number;
   createdAt: string;
   updatedAt: string;
+  
+  // Enhanced user model for research
+  preferredTopics: string[]; // e.g., ["politics", "ethics", "technology"]
+  averageSpeechTime: number; // in seconds
+  lastCoherenceScore: number; // 0-100
+  fillerWordRate: number; // percentage
+  emotionalRatings: number[]; // recent confidence ratings
+  badgesEarned: string[]; // e.g., ["Quick Thinker", "Filler Beater"]
+  profileCompleted: boolean;
 }
 
 export interface FallacyExample {
@@ -27,6 +36,7 @@ export interface DebateTopic {
   difficulty: number;
   forPosition: string;
   againstPosition: string;
+  category: string; // e.g., "politics", "ethics", "technology"
 }
 
 export interface DebateMessage {
@@ -37,6 +47,9 @@ export interface DebateMessage {
   timestamp: string;
   fallacies?: string[];
   coaching?: string;
+  speechDuration?: number; // in seconds
+  fillerWordCount?: number;
+  factualClaimCount?: number;
 }
 
 export interface DebateSession {
@@ -49,6 +62,9 @@ export interface DebateSession {
   completed: boolean;
   startTime: string;
   endTime?: string;
+  coherenceScore: number; // 0-100
+  emotionalRating?: number; // 1-5 confidence rating
+  adaptivePrompts: string[]; // personalized tips shown during debate
 }
 
 export interface UsabilityMetrics {
@@ -64,6 +80,8 @@ export interface EmotionalMetrics {
   arousal: number; // -4 to +4 SAM scale
   dominance: number; // -4 to +4 SAM scale
   timestamp: string;
+  confidence: number; // 1-5 post-debate confidence
+  frustration: number; // 1-5 frustration level
 }
 
 export interface StudySession {
@@ -84,4 +102,16 @@ export interface AppSettings {
   studyMode: boolean;
   participantId?: string;
   currentVersion?: 'random' | 'personalized';
+  onboardingCompleted: boolean;
+  microphoneEnabled: boolean;
+}
+
+export interface UserFeedback {
+  id: string;
+  userId: string;
+  rating: number; // 1-5 stars
+  feedback: string;
+  feature: string; // what they liked most
+  painPoint: string; // biggest frustration
+  timestamp: string;
 }

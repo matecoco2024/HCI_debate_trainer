@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { UserModel, AppSettings } from '../types';
 import { StorageService } from '../services/StorageService';
@@ -19,12 +18,23 @@ const defaultUserModel: UserModel = {
   totalPracticeCount: 0,
   totalDebateCount: 0,
   createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString()
+  updatedAt: new Date().toISOString(),
+  
+  // Enhanced user model fields
+  preferredTopics: [],
+  averageSpeechTime: 60,
+  lastCoherenceScore: 50,
+  fillerWordRate: 15,
+  emotionalRatings: [],
+  badgesEarned: [],
+  profileCompleted: false
 };
 
 const defaultSettings: AppSettings = {
   isPersonalized: true,
-  studyMode: false
+  studyMode: false,
+  onboardingCompleted: false,
+  microphoneEnabled: false
 };
 
 interface UserState {
