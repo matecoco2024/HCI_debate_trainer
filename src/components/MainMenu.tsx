@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -7,7 +6,8 @@ import { Switch } from '@/components/ui/switch';
 import { Brain, MessageSquare, Settings2, BarChart3, ExternalLink } from 'lucide-react';
 import { useUser } from '../contexts/UserContext';
 import OnboardingFlow from './OnboardingFlow';
-import ProgressDashboard from './ProgressDashboard';
+import EnhancedProgressDashboard from './EnhancedProgressDashboard';
+import PracticeModeSelector from './PracticeModeSelector';
 import TopicRecommendations from './TopicRecommendations';
 import FeedbackWidget from './FeedbackWidget';
 import LoginForm from './LoginForm';
@@ -17,6 +17,7 @@ const MainMenu: React.FC = () => {
   const navigate = useNavigate();
   const { user, userModel, settings, isAuthenticated, isLoading, login, logout, updateSettings } = useUser();
   const [showDashboard, setShowDashboard] = useState(false);
+  const [showPracticeMode, setShowPracticeMode] = useState(false);
 
   const handlePersonalizationToggle = (checked: boolean) => {
     updateSettings({ isPersonalized: checked });
@@ -59,14 +60,14 @@ const MainMenu: React.FC = () => {
             </Button>
             
             <h1 className="text-3xl font-playfair font-bold text-white">
-              Your Progress Dashboard
+              Enhanced Progress Analytics
             </h1>
             
             <div className="w-20" /> {/* Spacer */}
           </div>
 
           <div className="bg-white/95 backdrop-blur-sm rounded-lg p-6">
-            <ProgressDashboard />
+            <EnhancedProgressDashboard />
           </div>
         </div>
         <FeedbackWidget />
@@ -151,7 +152,7 @@ const MainMenu: React.FC = () => {
                 </CardContent>
               </Card>
 
-              {/* AI Debate */}
+              {/* Enhanced AI Debate */}
               <Card className="bg-white/95 backdrop-blur-sm hover:bg-white transition-all duration-300 transform hover:scale-105 cursor-pointer group">
                 <CardHeader className="text-center pb-4">
                   <div className="mx-auto w-16 h-16 bg-gradient-accent rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
@@ -161,32 +162,36 @@ const MainMenu: React.FC = () => {
                     AI Debate Practice
                   </CardTitle>
                   <CardDescription className="text-gray-600">
-                    Engage in structured debates with AI coaching and real-time feedback
+                    Choose structured formats or free-form practice with AI sparring partners
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="text-center">
+                <CardContent className="text-center space-y-3">
                   <Button 
                     className="w-full bg-gradient-accent hover:opacity-90 text-white font-semibold py-3"
+                    onClick={() => setShowPracticeMode(true)}
+                  >
+                    Choose Practice Format
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    className="w-full"
                     onClick={() => navigate('/debate')}
                   >
-                    Start Debate Session
+                    Quick Debate Session
                   </Button>
-                  <p className="text-sm text-gray-500 mt-3">
-                    {settings.isPersonalized 
-                      ? `Personalized topics and coaching based on your history`
-                      : 'Random topic selection'
-                    }
+                  <p className="text-sm text-gray-500">
+                    New: Structured formats (Lincoln-Douglas, Public Forum) with AI coaching
                   </p>
                 </CardContent>
               </Card>
 
-              {/* Progress Dashboard Card */}
+              {/* Enhanced Progress Dashboard Card */}
               <Card className="md:col-span-2 bg-white/95 backdrop-blur-sm hover:bg-white transition-all duration-300 cursor-pointer group">
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     <span className="flex items-center gap-2">
                       <BarChart3 className="w-5 h-5" />
-                      Your Progress
+                      Advanced Progress Analytics
                     </span>
                     <Button
                       variant="ghost"
@@ -198,30 +203,65 @@ const MainMenu: React.FC = () => {
                       <ExternalLink className="w-4 h-4 ml-1" />
                     </Button>
                   </CardTitle>
+                  <CardDescription>
+                    Deep insights into your debate performance with personalized improvement suggestions
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className="grid grid-cols-4 gap-4 text-center">
                     <div>
                       <div className="text-2xl font-bold text-blue-600">{userModel.totalDebateCount}</div>
                       <div className="text-sm text-gray-600">Debates</div>
                     </div>
                     <div>
                       <div className="text-2xl font-bold text-green-600">{userModel.lastCoherenceScore}</div>
-                      <div className="text-sm text-gray-600">Last Score</div>
+                      <div className="text-sm text-gray-600">Coherence</div>
                     </div>
                     <div>
-                      <div className="text-2xl font-bold text-purple-600">{userModel.badgesEarned?.length || 0}</div>
+                      <div className="text-2xl font-bold text-purple-600">{userModel.fillerWordRate}%</div>
+                      <div className="text-sm text-gray-600">Filler Words</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-orange-600">{userModel.badgesEarned?.length || 0}</div>
                       <div className="text-sm text-gray-600">Badges</div>
                     </div>
+                  </div>
+                  <div className="mt-4 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+                    <p className="text-sm text-blue-800 font-medium">
+                      🎯 Next Goal: Improve statistical evidence usage (+12% performance boost possible)
+                    </p>
                   </div>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Sidebar */}
+            {/* Enhanced Sidebar */}
             <div className="space-y-6">
               {/* Topic Recommendations */}
               <TopicRecommendations onSelectTopic={handleTopicSelect} />
+
+              {/* New Features Highlight */}
+              <Card className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    ✨ New Features
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">🎯 AI Analysis Dashboard</h4>
+                    <p className="text-xs text-gray-600">Get detailed feedback on fallacies, evidence, and argument structure</p>
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">⚡ Practice Mode Formats</h4>
+                    <p className="text-xs text-gray-600">Lincoln-Douglas, Public Forum, Parliamentary, and Oxford style debates</p>
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">🤖 AI Sparring Partner</h4>
+                    <p className="text-xs text-gray-600">Real-time turn-based practice with intelligent AI opponents</p>
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* Quick Actions */}
               <Card className="bg-white/95 backdrop-blur-sm">
@@ -269,6 +309,25 @@ const MainMenu: React.FC = () => {
           </div>
         </div>
       </div>
+      
+      {/* Practice Mode Modal */}
+      {showPracticeMode && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-4 border-b flex justify-between items-center">
+              <h2 className="text-xl font-semibold">Select Practice Format</h2>
+              <Button variant="ghost" onClick={() => setShowPracticeMode(false)}>×</Button>
+            </div>
+            <PracticeModeSelector 
+              onFormatSelect={(format) => {
+                setShowPracticeMode(false);
+                // Handle format selection - could navigate to specialized practice page
+                console.log('Selected format:', format);
+              }}
+            />
+          </div>
+        </div>
+      )}
       
       <FeedbackWidget />
     </div>
